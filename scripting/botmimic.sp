@@ -138,6 +138,8 @@ Handle g_hTeleport;
 ConVar g_hCVOriginSnapshotInterval;
 ConVar g_hCVRespawnOnDeath;
 
+bool gB_DoMiddleFrame[MAXPLAYERS+1] = {false, ...};
+
 public Plugin myinfo = 
 {
 	name = "Bot Mimic",
@@ -461,25 +463,46 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 	if(!IsPlayerAlive(client) || GetClientTeam(client) < CS_TEAM_T)
 		return Plugin_Continue;
 	
+	int iFrame[FrameInfo];
+
+	if (gB_DoMiddleFrame[client])
+	{
+		g_iBotMimicTick[client] += 1;
+	}
+
 	if(g_iBotMimicTick[client] >= g_iBotMimicRecordTickCount[client])
 	{
 		g_iBotMimicTick[client] = 0;
 		g_iCurrentAdditionalTeleportIndex[client] = 0;
 	}
-	
-	int iFrame[FrameInfo];
+
 	g_hBotMimicsRecord[client].GetArray(g_iBotMimicTick[client], iFrame[0], view_as<int>(FrameInfo));
 	
 	buttons = iFrame[playerButtons];
 	impulse = iFrame[playerImpulse];
+
 	Array_Copy(iFrame[predictedVelocity], vel, 3);
 	Array_Copy(iFrame[predictedAngles], angles, 2);
+
+	if (gB_DoMiddleFrame[client] && g_iBotMimicTick[client] + 1 < g_iBotMimicRecordTickCount[client])
+	{
+		int asdf[FrameInfo];
+		g_hBotMimicsRecord[client].GetArray(g_iBotMimicTick[client] + 1, asdf[0], 10);
+
+		angles[0] = (angles[0] + asdf[predictedAngles][0]) / 2.0;
+		float diff = GetAngleDiff(asdf[predictedAngles][1], asdf[predictedAngles][1]);
+		angles[1] = AngleNormalize(angles[1] + diff / 2.0);
+
+		ScaleVector(vel, 0.5);
+	}
+
 	subtype = iFrame[playerSubtype];
 	seed = iFrame[playerSeed];
 	weapon = 0;
 	
 	float fActualVelocity[3];
 	Array_Copy(iFrame[actualVelocity], fActualVelocity, 3);
+	ScaleVector(fActualVelocity, 0.5);
 	
 	// We're supposed to teleport stuff?
 	if(iFrame[additionalFields] & (ADDITIONAL_FIELD_TELEPORTED_ORIGIN|ADDITIONAL_FIELD_TELEPORTED_ANGLES|ADDITIONAL_FIELD_TELEPORTED_VELOCITY))
@@ -490,6 +513,11 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 		GetFileFromFrameHandle(g_hBotMimicsRecord[client], sPath, sizeof(sPath));
 		g_hLoadedRecordsAdditionalTeleport.GetValue(sPath, hAdditionalTeleport);
 		hAdditionalTeleport.GetArray(g_iCurrentAdditionalTeleportIndex[client], iAT[0], view_as<int>(AdditionalTeleport));
+
+		if (!gB_DoMiddleFrame[client])
+		{
+			g_iCurrentAdditionalTeleportIndex[client]++;
+		}
 		
 		float fOrigin[3], fAngles[3], fVelocity[3];
 		Array_Copy(iAT[atOrigin], fOrigin, 3);
@@ -533,8 +561,6 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 					TeleportEntity(client, NULL_VECTOR, NULL_VECTOR, fVelocity);
 			}
 		}
-		
-		g_iCurrentAdditionalTeleportIndex[client]++;
 	}
 	
 	// This is the first tick. Teleport him to the initial position
@@ -616,8 +642,8 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 		Call_PushString(iBookmark[BKM_name]);
 		Call_Finish();
 	}
-	
-	g_iBotMimicTick[client]++;
+
+	gB_DoMiddleFrame[client] = !gB_DoMiddleFrame[client];
 	
 	return Plugin_Changed;
 }
@@ -1964,4 +1990,24 @@ stock void GetFileFromFrameHandle(ArrayList frames, char[] path, int maxlen)
 		strcopy(path, maxlen, sPath);
 		break;
 	}
+}
+
+stock float GetAngleDiff(float current, float previous)
+{
+	float diff = current - previous;
+	return diff - 360.0 * RoundToFloor((diff + 180.0) / 360.0);
+}
+
+stock float AngleNormalize(float flAngle)
+{
+	if (flAngle > 180.0)
+	{
+		flAngle -= 360.0;
+	}
+	else if (flAngle < -180.0)
+	{
+		flAngle += 360.0;
+	}
+
+	return flAngle;
 }
