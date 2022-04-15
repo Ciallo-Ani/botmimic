@@ -7,7 +7,8 @@
 #define MAX_BOOKMARK_NAME_LENGTH 64
 #define DEFAULT_CATEGORY "default"
 
-enum BMError {
+enum BMError
+{
 	BM_NoError = 0,
 	BM_BadClient, // Provided client index is invalid
 	BM_FileNotFound, // The file does not exists or can't be opened
@@ -15,15 +16,16 @@ enum BMError {
 	BM_NewerBinaryVersion // The record was recorded with a newer version of Bot Mimic and can't be played.
 };
 
-enum BMFileHeader {
-	BMFH_binaryFormatVersion = 0,
-	BMFH_recordEndTime,
-	String:BMFH_recordName[MAX_RECORD_NAME_LENGTH],
-	BMFH_tickCount,
-	Float:BMFH_initialPosition[3],
-	Float:BMFH_initialAngles[3],
-	BMFH_bookmarkCount
-};
+enum struct BMFileHeader
+{
+	int BMFH_binaryFormatVersion;
+	int BMFH_recordEndTime;
+	char BMFH_recordName[MAX_RECORD_NAME_LENGTH];
+	int BMFH_tickCount;
+	float BMFH_initialPosition[3];
+	float BMFH_initialAngles[3];
+	int BMFH_bookmarkCount;
+}
 
 /**
  * Start to record the movements of a player.
@@ -178,11 +180,11 @@ native ArrayList BotMimic_GetLoadedRecordCategoryList();
 /**
  * Get the header information of a record. This includes the record name.
  *
- * @param path	The path to the .rec record file
- * @param iFileHeader	An array to store the file header in.
+ * @param path		The path to the .rec record file
+ * @param header	An array to store the file header in.
  * @return			BM_NoError if all went smooth, see BMError definition.
  */
-native BMError BotMimic_GetFileHeaders(const char[] path, int iFileHeader[BMFileHeader], int size = view_as<int>(BMFileHeader));
+native BMError BotMimic_GetFileHeaders(const char[] path, any[] header, int size = sizeof(BMFileHeader));
 
 /**
  * Get the category of a record.
